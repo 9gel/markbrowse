@@ -93,6 +93,7 @@
     copy.setAttribute("width", w);
     copy.setAttribute("height", h);
     var stage = document.createElement("div");
+    stage.className = "mermaid-stage";
     stage.appendChild(copy);
     overlay.appendChild(stage);
 
@@ -110,11 +111,17 @@
     document.body.appendChild(overlay);
     document.body.classList.add("viewer-open");
 
-    var fit = Math.min(overlay.clientWidth / w, overlay.clientHeight / h) *
-      0.95;
+    // Panzoom's focal-point zoom assumes the stage sits at the overlay's
+    // top-left with its default 50% origin; flex centering breaks that math.
+    // Centre with the start pan instead. Scaling about the stage centre c,
+    // screen = c + scale * (point - c + pan).
+    var W = overlay.clientWidth, H = overlay.clientHeight;
+    var fit = Math.min(W / w, H / h) * 0.95;
     var pz = Panzoom(stage, {
       canvas: true,
       startScale: fit,
+      startX: (W - w) / (2 * fit),
+      startY: (H - h) / (2 * fit),
       minScale: fit / 4,
       maxScale: Math.max(fit * 40, 4)
     });

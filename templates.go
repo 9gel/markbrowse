@@ -39,7 +39,7 @@ type dirData struct {
 	Auth        bool
 }
 
-var mdTmpl = template.Must(template.New("markdown").Parse(`<!DOCTYPE html>
+var mdTmpl = template.Must(template.New("markdown").Funcs(assetFuncs).Parse(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -74,21 +74,21 @@ var mdTmpl = template.Must(template.New("markdown").Parse(`<!DOCTYPE html>
 <article class="markdown-body">
 {{.Body}}
 </article>
-{{if .HasMermaid}}<script src="/__mdview/mermaid.js"></script>
-<script src="/__mdview/panzoom.js"></script>{{end}}
+{{if .HasMermaid}}<script src="/__mdview/mermaid.js?v={{v}}"></script>
+<script src="/__mdview/panzoom.js?v={{v}}"></script>{{end}}
 </div>
 </main>
 <nav class="mdview-toc" id="toc-root" aria-label="Table of contents"></nav>
 <button id="toc-toggle" title="Toggle table of contents">&#187;</button>
 </div>
-<script src="/__mdview/sidebar.js"></script>
-<script src="/__mdview/tablesort.js"></script>
-<script src="/__mdview/ui.js"></script>
-<script src="/__mdview/toc.js"></script>
+<script src="/__mdview/sidebar.js?v={{v}}"></script>
+<script src="/__mdview/tablesort.js?v={{v}}"></script>
+<script src="/__mdview/ui.js?v={{v}}"></script>
+<script src="/__mdview/toc.js?v={{v}}"></script>
 </body>
 </html>`))
 
-var dirTmpl = template.Must(template.New("dirlist").Parse(`<!DOCTYPE html>
+var dirTmpl = template.Must(template.New("dirlist").Funcs(assetFuncs).Parse(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -133,8 +133,12 @@ var dirTmpl = template.Must(template.New("dirlist").Parse(`<!DOCTYPE html>
 </div>
 </main>
 </div>
-<script src="/__mdview/sidebar.js"></script>
-<script src="/__mdview/tablesort.js"></script>
-<script src="/__mdview/ui.js"></script>
+<script src="/__mdview/sidebar.js?v={{v}}"></script>
+<script src="/__mdview/tablesort.js?v={{v}}"></script>
+<script src="/__mdview/ui.js?v={{v}}"></script>
 </body>
 </html>`))
+
+// assetFuncs gives script URLs a per-start version (?v=), so browsers fetch
+// fresh scripts after an upgrade even if an older build cached them.
+var assetFuncs = template.FuncMap{"v": func() string { return serverID }}

@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -240,32 +241,32 @@ func (h *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fsPath := filepath.Join(h.root, relPath[1:])
 
 	if relPath == "/__mdview/mermaid.js" {
-		serveAsset(w, "application/javascript", mermaidJS)
+		serveAsset(w, r, "application/javascript", mermaidJS)
 		return
 	}
 
 	if relPath == "/__mdview/panzoom.js" {
-		serveAsset(w, "application/javascript", panzoomJS)
+		serveAsset(w, r, "application/javascript", panzoomJS)
 		return
 	}
 
 	if relPath == "/__mdview/ui.js" {
-		serveAsset(w, "application/javascript", uiJS)
+		serveAsset(w, r, "application/javascript", uiJS)
 		return
 	}
 
 	if relPath == "/__mdview/sidebar.js" {
-		serveAsset(w, "application/javascript", sidebarJS)
+		serveAsset(w, r, "application/javascript", sidebarJS)
 		return
 	}
 
 	if relPath == "/__mdview/tablesort.js" {
-		serveAsset(w, "application/javascript", tablesortJS)
+		serveAsset(w, r, "application/javascript", tablesortJS)
 		return
 	}
 
 	if relPath == "/__mdview/toc.js" {
-		serveAsset(w, "application/javascript", tocJS)
+		serveAsset(w, r, "application/javascript", tocJS)
 		return
 	}
 
@@ -560,7 +561,10 @@ func (h *fileHandler) serveMarkdown(w http.ResponseWriter, r *http.Request, root
 
 	// ETag from file identity lets browsers revalidate cheaply and lets us
 	// short-circuit with 304 without re-reading/re-rendering unchanged files.
-	etag := fmt.Sprintf(`"%x-%x"`, info.ModTime().UnixNano(), info.Size())
+	// serverID makes a restart (often an upgrade) invalidate it, or browsers
+	// keep showing pages rendered by the old templates.
+	etag := fmt.Sprintf(`"%s-%x-%x"`, serverID, info.ModTime().UnixNano(),
+		info.Size())
 	if match := r.Header.Get("If-None-Match"); match == etag {
 		w.Header().Set("ETag", etag)
 		w.WriteHeader(http.StatusNotModified)
@@ -795,13 +799,25 @@ func (h *fileHandler) serveTreeJSON(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// serverID changes on every start, so caches keyed on it go stale exactly
+// when the binary (and with it the templates and assets) may have changed.
+var serverID = strconv.FormatInt(time.Now().UnixNano(), 36)
+
 // serveAsset writes an embedded static asset. These are go:embed'd files
 // compiled into the binary, not user input.
 //
 // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter -- assets are build-time embedded, never request-derived
-func serveAsset(w http.ResponseWriter, contentType string, asset []byte) {
+func serveAsset(w http.ResponseWriter, r *http.Request, contentType string,
+	asset []byte) {
+	// Revalidate every load: a 304 is cheap, and a max-age would keep old
+	// scripts running against new pages for that long after an upgrade.
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("ETag", `"`+serverID+`"`)
+	if r.Header.Get("If-None-Match") == `"`+serverID+`"` {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
 	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Cache-Control", "public, max-age=86400")
 	// nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter -- asset is compile-time embedded bytes
 	_, _ = w.Write(asset)
 }

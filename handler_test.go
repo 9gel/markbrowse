@@ -529,10 +529,14 @@ func TestMermaidBootstrapIsHardened(t *testing.T) {
 // three minors and a major shipped. These constants are the record, and the
 // test below is what makes a silent swap fail.
 //
-//	npm pack mermaid@12.0.0 && sha256sum package/dist/mermaid.min.js
+// Held at 11.4.0 on purpose: 12 changed the default look ("neo", redux
+// theme) and lays big flowcharts out much harder to read. 11.4.0 matches
+// what SilverBullet renders.
+//
+//	npm pack mermaid@11.4.0 && sha256sum package/dist/mermaid.min.js
 const (
-	mermaidVendoredVersion = "12.0.0"
-	mermaidVendoredSHA256  = "28fca7ae6ebc7ed7bb63bde63136a74bfef14f296a57e403657eeb8b32836073"
+	mermaidVendoredVersion = "11.4.0"
+	mermaidVendoredSHA256  = "1bca2e3c09f0e33ccc6e701e9c79d5cfa87d5e929b35d3a4aea4e1ec069dc87b"
 )
 
 // TestMermaidAssetIsTheVendoredBundle pins the embedded bundle to the exact
@@ -550,9 +554,9 @@ func TestMermaidAssetIsTheVendoredBundle(t *testing.T) {
 	// global, so the global export and the securityLevel option both have to
 	// survive whatever version is vendored.
 	for _, want := range []string{
-		`globalThis["mermaid"]`,
+		"globalThis.mermaid =",
 		"securityLevel",
-		`version:"` + mermaidVendoredVersion + `"`,
+		`"` + mermaidVendoredVersion + `"`,
 	} {
 		if !strings.Contains(js, want) {
 			t.Errorf("mermaid bundle missing %q", want)
@@ -1056,6 +1060,46 @@ func TestAuthLinksFollowFlag(t *testing.T) {
 			if !strings.Contains(out, `id="theme-toggle"`) {
 				t.Error("theme toggle missing")
 			}
+		}
+	}
+}
+
+// After an upgrade the browser must not keep pages or scripts from the old
+// binary: both validators carry serverID, which changes per start.
+func TestCachesInvalidateOnRestart(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.md"), []byte("# A"), 0o644)
+	h := &fileHandler{root: dir, md: newMarkdownConverter(dir, false)}
+
+	rec := get(t, h, "/a.md")
+	if et := rec.Header().Get("ETag"); !strings.Contains(et, serverID) {
+		t.Errorf("markdown ETag %q lacks serverID %q", et, serverID)
+	}
+
+	rec = get(t, h, "/__mdview/ui.js")
+	if cc := rec.Header().Get("Cache-Control"); cc != "no-cache" {
+		t.Errorf("asset Cache-Control = %q, want no-cache", cc)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/__mdview/ui.js", nil)
+	req.Header.Set("If-None-Match", rec.Header().Get("ETag"))
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotModified {
+		t.Errorf("revalidated asset: %d, want 304", rec.Code)
+	}
+}
+
+// GitHub's base .markdown-body rule sets --fgColor-accent to Highlight; the
+// theme blocks must target .markdown-body too or dark links turn dark blue.
+func TestThemeVarsReachMarkdownBody(t *testing.T) {
+	for _, sel := range []string{
+		":root[data-theme=dark] .markdown-body{",
+		":root[data-theme=light] .markdown-body{",
+		":root:not([data-theme=light]) .markdown-body{",
+		":root:not([data-theme=dark]) .markdown-body{",
+	} {
+		if !strings.Contains(defaultCSS, sel) {
+			t.Errorf("stylesheet lacks %q", sel)
 		}
 	}
 }
