@@ -6,6 +6,7 @@ import (
 	"html"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -30,6 +31,15 @@ var alertIcons = alerts.Icons{
 	"warning":   `<svg class="octicon octicon-alert mr-2" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/></svg>`,
 	"caution":   `<svg class="octicon octicon-stop mr-2" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4.47.22A.749.749 0 0 1 5 0h6c.199 0 .389.079.53.22l4.25 4.25c.141.14.22.331.22.53v6a.749.749 0 0 1-.22.53l-4.25 4.25A.749.749 0 0 1 11 16H5a.749.749 0 0 1-.53-.22L.22 11.53A.749.749 0 0 1 0 11V5c0-.199.079-.389.22-.53Zm.84 1.28L1.5 5.31v5.38l3.81 3.81h5.38l3.81-3.81V5.31L10.69 1.5ZM8 4a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/></svg>`,
 }
+
+// sbHeadingAnchor matches a rendered heading that ends in a SilverBullet
+// anchor ("## Goals $proj/doc/goals") and captures level, text and anchor.
+// The anchor becomes the heading id and leaves the visible text. Anchors
+// start with a letter or "_", so "costs $5" is left alone. Running on the
+// HTML rather than the AST keeps it out of code blocks for free: there the
+// tags are escaped.
+var sbHeadingAnchor = regexp.MustCompile(
+	`<h([1-6]) id="[^"]*">(.*?)\s+\$([A-Za-z_][A-Za-z0-9_\-/:]*)\s*</h[1-6]>`)
 
 type markdownConverter struct {
 	parser   parser.Parser
@@ -88,6 +98,8 @@ func (m *markdownConverter) convert(source []byte) (string, error) {
 		return "", err
 	}
 	body := buf.String()
+	body = sbHeadingAnchor.ReplaceAllString(body,
+		`<h${1} id="${3}">${2}</h${1}>`)
 
 	// Prepend a GitHub-style table for YAML front matter, if any. The items
 	// form preserves the order keys appear in the document.
@@ -238,6 +250,12 @@ func (r *wikilinkResolver) index() fileIndex {
 }
 
 func (r *wikilinkResolver) ResolveWikilink(n *wikilink.Node) ([]byte, error) {
+	// [[$anchor|label]] is a SilverBullet link to a heading anchor in this
+	// document; see sbHeadingAnchor.
+	if bytes.HasPrefix(n.Target, []byte("$")) {
+		return append([]byte("#"), n.Target[1:]...), nil
+	}
+
 	idx := r.index()
 	target := strings.ToLower(string(n.Target))
 

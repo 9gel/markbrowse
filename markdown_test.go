@@ -360,3 +360,29 @@ func TestGFMFeaturesSurviveWithoutUnsafe(t *testing.T) {
 		}
 	}
 }
+
+// Documents written for SilverBullet put a "$anchor" at the end of each
+// heading and link to it with [[$anchor|label]]. Both must become plain
+// heading ids and fragment links, or the table of contents goes nowhere.
+func TestSilverBulletAnchors(t *testing.T) {
+	md := newMarkdownConverter(t.TempDir(), false)
+	src := "- [[$p/doc/a_rec|A. Rec]]\n\n" +
+		"## A. Rec $p/doc/a_rec\n\n" +
+		"### Price is $5 today\n\n" +
+		"```\n## Code $p/doc/not-a-heading\n```\n"
+	got, err := md.convert([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`<a href="#p/doc/a_rec">A. Rec</a>`,
+		`<h2 id="p/doc/a_rec">A. Rec</h2>`,
+		// A "$" that is not a trailing anchor stays as written.
+		`Price is $5 today</h3>`,
+		`## Code $p/doc/not-a-heading`,
+	} {
+		if !contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
