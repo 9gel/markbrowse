@@ -4,12 +4,13 @@ A minimal markdown file viewer. Point it at any directory and it starts a web se
 
 ## Features
 
-- Renders markdown files as HTML with GitHub-flavored styling (light + dark mode)
+- Renders markdown files as HTML with GitHub-flavored styling, with a system / light / dark theme switch
+- Password logins: first visit creates the admin account; admins add and remove users
 - Collapsible sidebar file tree for navigating the directory, with a quick filter that searches the whole vault by file name (or by path when the query contains `/`)
 - Uses directories' `README.md` or `INDEX.md` as the index page
 - Falls back to a file listing when no index markdown is present
 - Serves non-markdown files as-is (images, PDFs, etc.)
-- [Mermaid](https://mermaid.js.org/) diagram rendering (mermaid 12, bundled — needs an ES2024 browser: Safari 17.4+, current Chrome/Firefox/Edge)
+- [Mermaid](https://mermaid.js.org/) diagram rendering (mermaid 12, bundled — needs an ES2024 browser: Safari 17.4+, current Chrome/Firefox/Edge). Tap a diagram to open it full-window, then pan and zoom (drag, wheel, pinch)
 - Wiki-style `[[link]]` syntax with file-tree resolution
 - GitHub/Obsidian-style admonition callouts (`> [!NOTE]`, `> [!WARNING]`, etc.)
 - YAML front matter rendered as a GitHub-style metadata table, with `title` used as the page title
@@ -45,8 +46,7 @@ markbrowse /path/to/docs
 # Custom port
 markbrowse --port 3000
 
-# Expose on the network (default is loopback-only, since the server is
-# unauthenticated — only do this on trusted networks)
+# Expose on the network (default is loopback-only)
 markbrowse --listen 0.0.0.0
 
 # Custom CSS (replaces built-in stylesheet entirely)
@@ -61,11 +61,10 @@ Open `http://localhost:8080` in your browser. If the requested port is busy,
 `markbrowse` automatically falls back to the next free port (searching from
 10000 upward) and logs the port it bound to.
 
-By default the server binds `127.0.0.1` only. It serves files without
-authentication, so it is deliberately not reachable from the network unless
-you pass `--listen 0.0.0.0` (or a specific interface address). If you run it
-in a container with a port mapping (e.g. `docker run -p 8080:8080 ...`),
-add `--listen 0.0.0.0` or the mapping will not reach it.
+By default the server binds `127.0.0.1` only, so it is not reachable from
+the network unless you pass `--listen 0.0.0.0` (or a specific interface
+address). If you run it in a container with a port mapping (e.g.
+`docker run -p 8080:8080 ...`), add `--listen 0.0.0.0` or the mapping will not reach it.
 
 ## How it works
 
@@ -93,13 +92,28 @@ do this for content you trust, since it re-enables both.
   --css path    Path to custom CSS file (replaces built-in stylesheet)
   --raw-html    Render raw HTML in markdown unescaped and allow
                 javascript:/data: URLs (only for content you trust)
+  --auth-file path  User file (default $XDG_CONFIG_HOME/markbrowse/auth.json)
+  --no-auth     Disable logins
   --version     Print version and exit
 ```
 
+## Authentication
+
+On first start there are no users, and every request goes to a setup page
+that creates the admin account. Until then, whoever reaches the server first
+gets to be admin, so do the setup before exposing it. Afterwards
+`/__mdview/users` (the Users link in the sidebar) lets admins add users, reset passwords and
+delete users; everyone can change their own password there.
+
+Passwords are bcrypt hashes in the auth file (written mode 0600). Sessions
+are signed cookies valid for 30 days; changing a password logs that user out
+everywhere. Cross-site form posts are rejected. Behind a TLS proxy, send
+`X-Forwarded-Proto: https` so the cookie is marked Secure. To reset
+everything, stop the server and delete the auth file.
+
 ## Security
 
-markbrowse serves a directory over unauthenticated HTTP, so the defaults
-assume the content may not be trustworthy:
+The defaults assume the content may not be trustworthy:
 
 - **Binds `127.0.0.1`.** Pass `--listen 0.0.0.0` to expose it deliberately.
 - **Raw HTML in markdown is omitted**, and `javascript:`/`vbscript:`/`file:`/
@@ -109,8 +123,8 @@ assume the content may not be trustworthy:
   `Content-Security-Policy: sandbox`, so they cannot run script or read the
   rest of the served tree. Images, PDFs and downloads are unaffected.
 - **Rendered pages carry a CSP** with a per-request nonce for the one inline
-  script. `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`
-  are set on every response.
+  script (the theme restore). `X-Content-Type-Options: nosniff` and
+  `Referrer-Policy: no-referrer` are set on every response.
 - **`.git`, `.hg`, `.svn` and `.bzr` are never served**, matched
   case-insensitively so the block holds on macOS and Windows.
 - **Symlinks may not escape** the served directory, and markdown larger than
@@ -146,6 +160,9 @@ API the upstream versions do not yet support. Each directory keeps the original
 | `internal/mermaid` | [go.abhg.dev/goldmark/mermaid](https://go.abhg.dev/goldmark/mermaid) | BSD-3-Clause, © Abhinav Gupta |
 | `internal/alerts` | [goldmark-gh-alerts](https://github.com/thiagokokada/goldmark-gh-alerts) | MIT, © Adam Chovanec |
 | `internal/frontmatter` | [goldmark-meta](https://github.com/yuin/goldmark-meta) | MIT, © Yusuke Inuzuka |
+
+`static/js/panzoom.min.js` is [@panzoom/panzoom](https://github.com/timmywil/panzoom)
+4.6.0, MIT, © Timmy Willison, embedded unmodified.
 
 ## Changelog
 

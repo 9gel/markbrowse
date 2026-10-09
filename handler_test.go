@@ -502,9 +502,14 @@ func TestMermaidBootstrapIsHardened(t *testing.T) {
 	if !strings.Contains(out, "/__mdview/mermaid.js") {
 		t.Fatal("mdTmpl should load mermaid.js when the page has a diagram")
 	}
-	for _, want := range []string{`securityLevel:"strict"`, "startOnLoad:false", "mermaid.run()"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("mermaid bootstrap missing %s:\n%s", want, out)
+	if !strings.Contains(out, "/__mdview/panzoom.js") {
+		t.Fatal("mdTmpl should load panzoom.js for the full-window viewer")
+	}
+	// The bootstrap lives in ui.js, loaded on every page.
+	for _, want := range []string{`securityLevel: "strict"`,
+		"startOnLoad: false", "mermaid.run("} {
+		if !strings.Contains(string(uiJS), want) {
+			t.Errorf("mermaid bootstrap in ui.js missing %s", want)
 		}
 	}
 
@@ -1020,5 +1025,37 @@ func TestResolvedRootDirFallsBackWhenRootMissing(t *testing.T) {
 	h := &fileHandler{root: "/nonexistent/markbrowse/root"}
 	if got := h.resolvedRootDir(); got != filepath.Clean("/nonexistent/markbrowse/root") {
 		t.Errorf("resolvedRootDir fallback = %q, want cleaned root", got)
+	}
+}
+
+func TestUIAssetsServed(t *testing.T) {
+	h := &fileHandler{root: t.TempDir()}
+	for _, p := range []string{"/__mdview/ui.js", "/__mdview/panzoom.js"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))
+		if rec.Code != http.StatusOK || rec.Body.Len() == 0 {
+			t.Errorf("%s: status %d, %d bytes", p, rec.Code, rec.Body.Len())
+		}
+	}
+}
+
+// The Users / Log out links only make sense when main.go put auth in front.
+func TestAuthLinksFollowFlag(t *testing.T) {
+	for _, on := range []bool{false, true} {
+		var md, dir strings.Builder
+		if err := mdTmpl.Execute(&md, pageData{Auth: on}); err != nil {
+			t.Fatal(err)
+		}
+		if err := dirTmpl.Execute(&dir, dirData{Auth: on}); err != nil {
+			t.Fatal(err)
+		}
+		for _, out := range []string{md.String(), dir.String()} {
+			if got := strings.Contains(out, "/__mdview/logout"); got != on {
+				t.Errorf("auth=%v: logout link present=%v", on, got)
+			}
+			if !strings.Contains(out, `id="theme-toggle"`) {
+				t.Error("theme toggle missing")
+			}
+		}
 	}
 }

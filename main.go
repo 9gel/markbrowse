@@ -11,6 +11,8 @@ import (
 	"runtime/debug"
 	"strconv"
 	"time"
+
+	"github.com/anantshri/markbrowse/internal/auth"
 )
 
 var version = "dev"
@@ -27,9 +29,8 @@ func getVersion() string {
 	return "dev"
 }
 
-// defaultListenHost is loopback: the server is unauthenticated, so it must
-// not be reachable from the network unless the operator explicitly passes
-// --listen 0.0.0.0 (or another address).
+// defaultListenHost is loopback, so nothing is exposed to the network unless
+// the operator explicitly passes --listen 0.0.0.0 (or another address).
 const defaultListenHost = "127.0.0.1"
 
 func main() {
@@ -38,6 +39,10 @@ func main() {
 	cssPath := flag.String("css", "", "path to custom CSS file (replaces built-in stylesheet)")
 	rawHTML := flag.Bool("raw-html", false, "render raw HTML in markdown unescaped and allow javascript:/data: URLs (only for content you trust)")
 	showVersion := flag.Bool("version", false, "print version and exit")
+	authFile := flag.String("auth-file", defaultAuthFile(),
+		"user/password file; created on first-use setup")
+	noAuth := flag.Bool("no-auth", false,
+		"disable logins (anyone who can reach the port can read)")
 	flag.Parse()
 
 	if *showVersion {
@@ -80,6 +85,16 @@ func main() {
 		root:      rootDir,
 		md:        newMarkdownConverter(rootDir, *rawHTML),
 		customCSS: customCSS,
+		auth:      !*noAuth,
+	}
+	var handler http.Handler = h
+	if !*noAuth {
+		a, err := auth.Open(*authFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		handler = a.Wrap(h)
+		log.Printf("auth: users in %s", *authFile)
 	}
 
 	listener, actualPort, err := listenWithFallback(*listenHost, *port)
@@ -91,7 +106,7 @@ func main() {
 	addr := net.JoinHostPort(*listenHost, strconv.Itoa(actualPort))
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      h,
+		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 60 * time.Second,
 		IdleTimeout:  120 * time.Second,
@@ -154,4 +169,14 @@ func validateReadable(rootDir string) error {
 		return fmt.Errorf("reading directory: %w", err)
 	}
 	return nil
+}
+
+// defaultAuthFile lives under the user config dir, falling back to the
+// working directory when there is none.
+func defaultAuthFile() string {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "markbrowse-auth.json"
+	}
+	return filepath.Join(dir, "markbrowse", "auth.json")
 }

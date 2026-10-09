@@ -17,6 +17,7 @@ type pageData struct {
 	Breadcrumbs []breadcrumb
 	HasMermaid  bool
 	CurrentPath string
+	Auth        bool
 }
 
 type entryInfo struct {
@@ -35,6 +36,7 @@ type dirData struct {
 	ParentPath  string
 	Entries     []entryInfo
 	CurrentPath string
+	Auth        bool
 }
 
 var mdTmpl = template.Must(template.New("markdown").Parse(`<!DOCTYPE html>
@@ -44,12 +46,18 @@ var mdTmpl = template.Must(template.New("markdown").Parse(`<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}}</title>
 <style>{{.CSS}}</style>
+<script nonce="{{.Nonce}}">try{var t=localStorage.getItem("mb-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
 <body data-current-path="{{.CurrentPath}}">
 <div class="sidebar-overlay"></div>
 <div class="mdview-layout">
 <aside class="mdview-sidebar">
-<div class="sidebar-header">Files</div>
+<div class="sidebar-header"><span>Files</span>
+<span class="sidebar-tools">
+<button id="theme-toggle" type="button" title="Theme: system" aria-label="Theme: system">&#9680;</button>
+{{if .Auth}}<a href="/__mdview/users" title="Users">Users</a>
+<a href="/__mdview/logout" title="Log out">Log out</a>{{end}}
+</span></div>
 <div class="sidebar-filter">
 <input id="tree-filter" type="search" placeholder="Filter files&hellip;" aria-label="Filter files" aria-controls="tree-root" autocomplete="off" spellcheck="false">
 </div>
@@ -67,7 +75,7 @@ var mdTmpl = template.Must(template.New("markdown").Parse(`<!DOCTYPE html>
 {{.Body}}
 </article>
 {{if .HasMermaid}}<script src="/__mdview/mermaid.js"></script>
-<script nonce="{{.Nonce}}">mermaid.initialize({startOnLoad:false,securityLevel:"strict"});mermaid.run();</script>{{end}}
+<script src="/__mdview/panzoom.js"></script>{{end}}
 </div>
 </main>
 <nav class="mdview-toc" id="toc-root" aria-label="Table of contents"></nav>
@@ -75,6 +83,7 @@ var mdTmpl = template.Must(template.New("markdown").Parse(`<!DOCTYPE html>
 </div>
 <script src="/__mdview/sidebar.js"></script>
 <script src="/__mdview/tablesort.js"></script>
+<script src="/__mdview/ui.js"></script>
 <script src="/__mdview/toc.js"></script>
 </body>
 </html>`))
@@ -86,12 +95,18 @@ var dirTmpl = template.Must(template.New("dirlist").Parse(`<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Index of {{.Path}}</title>
 <style>{{.CSS}}</style>
+<script nonce="{{.Nonce}}">try{var t=localStorage.getItem("mb-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
 <body data-current-path="{{.CurrentPath}}">
 <div class="sidebar-overlay"></div>
 <div class="mdview-layout">
 <aside class="mdview-sidebar">
-<div class="sidebar-header">Files</div>
+<div class="sidebar-header"><span>Files</span>
+<span class="sidebar-tools">
+<button id="theme-toggle" type="button" title="Theme: system" aria-label="Theme: system">&#9680;</button>
+{{if .Auth}}<a href="/__mdview/users" title="Users">Users</a>
+<a href="/__mdview/logout" title="Log out">Log out</a>{{end}}
+</span></div>
 <div class="sidebar-filter">
 <input id="tree-filter" type="search" placeholder="Filter files&hellip;" aria-label="Filter files" aria-controls="tree-root" autocomplete="off" spellcheck="false">
 </div>
@@ -120,5 +135,6 @@ var dirTmpl = template.Must(template.New("dirlist").Parse(`<!DOCTYPE html>
 </div>
 <script src="/__mdview/sidebar.js"></script>
 <script src="/__mdview/tablesort.js"></script>
+<script src="/__mdview/ui.js"></script>
 </body>
 </html>`))

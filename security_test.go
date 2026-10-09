@@ -195,9 +195,9 @@ func TestPageCSPUsesAFreshNonce(t *testing.T) {
 	}
 }
 
-// TestMermaidScriptCarriesTheNonce is the one that would catch a CSP that
-// silently stops diagrams rendering.
-func TestMermaidScriptCarriesTheNonce(t *testing.T) {
+// TestInlineScriptCarriesTheNonce is the one that would catch a CSP that
+// silently stops the inline theme restore (and so the theme switch).
+func TestInlineScriptCarriesTheNonce(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "d.md"),
 		[]byte("# D\n\n```mermaid\ngraph TD;\n A-->B;\n```\n"), 0o644); err != nil {
@@ -207,8 +207,8 @@ func TestMermaidScriptCarriesTheNonce(t *testing.T) {
 
 	rec := get(t, h, "/d.md")
 	body := rec.Body.String()
-	if !strings.Contains(body, "mermaid.initialize") {
-		t.Fatalf("no mermaid bootstrap on a page with a diagram:\n%s", body)
+	if !strings.Contains(body, "/__mdview/ui.js") {
+		t.Fatalf("no ui.js on a page with a diagram:\n%s", body)
 	}
 	nonce := between(rec.Header().Get("Content-Security-Policy"), "'nonce-", "'")
 	tag := between(body, `<script nonce="`, `"`)

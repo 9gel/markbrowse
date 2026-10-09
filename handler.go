@@ -26,6 +26,8 @@ type fileHandler struct {
 	root      string
 	md        *markdownConverter
 	customCSS string
+	// auth shows the Users and Log out links; main.go does the guarding.
+	auth bool
 
 	treeMu   sync.Mutex
 	treeJSON []byte
@@ -242,6 +244,16 @@ func (h *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if relPath == "/__mdview/panzoom.js" {
+		serveAsset(w, "application/javascript", panzoomJS)
+		return
+	}
+
+	if relPath == "/__mdview/ui.js" {
+		serveAsset(w, "application/javascript", uiJS)
+		return
+	}
+
 	if relPath == "/__mdview/sidebar.js" {
 		serveAsset(w, "application/javascript", sidebarJS)
 		return
@@ -385,9 +397,10 @@ func isExecutableType(ctype string) bool {
 // pageCSP is the policy for markdown and directory-listing pages, which are
 // the documents markbrowse renders itself.
 //
-// script-src carries a per-request nonce for the one inline script (the mermaid
-// bootstrap); 'self' covers the embedded /__mdview/*.js. connect-src 'self'
-// stops any script that does slip through from exfiltrating over fetch.
+// script-src carries a per-request nonce for the one inline script (the
+// theme restore, which must run before first paint); 'self' covers the
+// embedded /__mdview/*.js. connect-src 'self' stops any script that does
+// slip through from exfiltrating over fetch.
 //
 // style-src keeps 'unsafe-inline' on purpose: the stylesheet is inlined into
 // the page, and mermaid injects <style> elements at render time, which a
@@ -506,6 +519,7 @@ func (h *fileHandler) serveDirectory(w http.ResponseWriter, r *http.Request, roo
 		// Trailing slash so the sidebar can prefix-match this directory and
 		// open it; parentPath keeps the root from becoming "//".
 		CurrentPath: dirCurrentPath(relPath),
+		Auth:        h.auth,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -600,6 +614,7 @@ func (h *fileHandler) serveMarkdown(w http.ResponseWriter, r *http.Request, root
 		Breadcrumbs: buildBreadcrumbs(relPath),
 		HasMermaid:  strings.Contains(body, `class="mermaid"`),
 		CurrentPath: currentPath,
+		Auth:        h.auth,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
