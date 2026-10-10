@@ -89,12 +89,23 @@
     var wrap = document.createElement("div");
     wrap.className = "tree-item";
 
+    var row = document.createElement("div");
+    row.className = "tree-folder";
+    indent(row, depth);
+
     var btn = document.createElement("button");
-    btn.className = "tree-folder";
+    btn.className = "tree-folder-toggle";
     btn.type = "button";
-    btn.textContent = node.name;
     btn.setAttribute("aria-expanded", open ? "true" : "false");
-    indent(btn, depth);
+    btn.setAttribute(
+      "aria-label",
+      (open ? "Collapse " : "Expand ") + node.name
+    );
+
+    var link = document.createElement("a");
+    link.className = "tree-folder-link";
+    link.href = node.path;
+    link.textContent = node.name;
 
     var kids = document.createElement("div");
     kids.className = "tree-children";
@@ -119,9 +130,15 @@
       btn.classList.toggle("collapsed");
       kids.classList.toggle("collapsed");
       btn.setAttribute("aria-expanded", nowOpen ? "true" : "false");
+      btn.setAttribute(
+        "aria-label",
+        (nowOpen ? "Collapse " : "Expand ") + node.name
+      );
     });
 
-    wrap.appendChild(btn);
+    row.appendChild(btn);
+    row.appendChild(link);
+    wrap.appendChild(row);
     wrap.appendChild(kids);
     return wrap;
   }

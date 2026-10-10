@@ -158,13 +158,30 @@ function clickFolder(name) {
   var found = null;
   (function walk(nodes) {
     nodes.forEach(function (c) {
-      if (!found && c.className && c.className.indexOf("tree-folder") !== -1 && c.textContent === name) found = c;
+      if (!found && c.className &&
+          c.className.indexOf("tree-folder-toggle") !== -1 &&
+          c.getAttribute("aria-label").indexOf(name) !== -1) found = c;
       if (c.childNodes && c.childNodes.length) walk(c.childNodes);
     });
   })(rootChildren());
   if (!found) throw new Error("no folder named " + name);
   fire(found, "click");
   return found;
+}
+
+function clickFolderName(name) {
+  var found = null;
+  (function walk(nodes) {
+    nodes.forEach(function (c) {
+      if (!found && c.className &&
+          c.className.indexOf("tree-folder-link") !== -1 &&
+          c.textContent === name) found = c;
+      if (c.childNodes && c.childNodes.length) walk(c.childNodes);
+    });
+  })(rootChildren());
+  if (!found) throw new Error("no folder link named " + name);
+  fire(found, "click");
+  return found.href;
 }
 `
 
@@ -280,6 +297,18 @@ func TestSidebarRendersLazily(t *testing.T) {
 	}
 	if hasRowText(rows, "buried.md") {
 		t.Errorf("opening guides also rendered its grandchildren: %v", rows)
+	}
+}
+
+func TestSidebarDirectoryNameLinksToIndexRoute(t *testing.T) {
+	vm := sidebarVM(t, sampleTree(), "/README.md")
+
+	got := call(t, vm, "clickFolderName", "guides").String()
+	if got != "/guides/" {
+		t.Errorf("folder href = %q, want %q", got, "/guides/")
+	}
+	if got := call(t, vm, "populatedFolders").ToInteger(); got != 0 {
+		t.Errorf("clicking folder name populated %d folders, want 0", got)
 	}
 }
 
