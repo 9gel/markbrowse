@@ -270,6 +270,11 @@ func (h *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if strings.HasPrefix(relPath, "/__mdview/katex/") {
+		serveKatexAsset(w, r, relPath)
+		return
+	}
+
 	if relPath == "/__mdview/tree.json" {
 		h.serveTreeJSON(w, r)
 		return
@@ -617,6 +622,7 @@ func (h *fileHandler) serveMarkdown(w http.ResponseWriter, r *http.Request, root
 		Body:        template.HTML(body),
 		Breadcrumbs: buildBreadcrumbs(relPath),
 		HasMermaid:  strings.Contains(body, `class="mermaid"`),
+		HasMath:     strings.Contains(body, `class="math-`),
 		CurrentPath: currentPath,
 		Auth:        h.auth,
 	}
@@ -820,6 +826,28 @@ func serveAsset(w http.ResponseWriter, r *http.Request, contentType string,
 	w.Header().Set("Content-Type", contentType)
 	// nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter -- asset is compile-time embedded bytes
 	_, _ = w.Write(asset)
+}
+
+func serveKatexAsset(w http.ResponseWriter, r *http.Request, relPath string) {
+	name := strings.TrimPrefix(relPath, "/__mdview/katex/")
+	var contentType string
+	switch path.Ext(name) {
+	case ".js":
+		contentType = "application/javascript"
+	case ".css":
+		contentType = "text/css; charset=utf-8"
+	case ".woff2":
+		contentType = "font/woff2"
+	default:
+		http.NotFound(w, r)
+		return
+	}
+	asset, err := katexFS.ReadFile("static/katex/" + name)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	serveAsset(w, r, contentType, asset)
 }
 
 func insertIntoTree(root *treeEntry, segments []string, urlPath string, isDir bool) {

@@ -1,6 +1,10 @@
 package main
 
-import _ "embed"
+import "embed"
+
+//go:embed static/katex/katex.min.js static/katex/katex.min.css
+//go:embed static/katex/fonts/*.woff2
+var katexFS embed.FS
 
 //go:embed static/js/mermaid.min.js
 var mermaidJS []byte
@@ -181,4 +185,5 @@ body.viewer-open{overflow:hidden}
 .mermaid-viewer svg{display:block;max-width:none}
 .mermaid-viewer-bar{position:fixed;top:12px;right:12px;display:flex;gap:6px;z-index:1001}
 .mermaid-viewer-bar button{width:40px;height:40px;font-size:18px;border:1px solid var(--borderColor-default,#d1d9e0);border-radius:6px;background:var(--bgColor-muted,#f6f8fa);color:var(--fgColor-default,#1f2328);cursor:pointer}
+.markdown-body div.math-display{overflow-x:auto;overflow-y:hidden}
 `

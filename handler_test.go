@@ -1103,3 +1103,66 @@ func TestThemeVarsReachMarkdownBody(t *testing.T) {
 		}
 	}
 }
+
+func TestKatexConditionalLoadAndAssets(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "plain.md"), []byte("# Plain\n\n$5"), 0o644)
+	os.WriteFile(
+		filepath.Join(dir, "math.md"),
+		[]byte("# Math\n\nInline $x_1$ and:\n\n$$\ny = x^2\n$$\n"),
+		0o644,
+	)
+	h := &fileHandler{root: dir, md: newMarkdownConverter(dir, false)}
+
+	plain := get(t, h, "/plain.md").Body.String()
+	if strings.Contains(plain, "/__mdview/katex/") {
+		t.Errorf("plain page should not load KaTeX:\n%s", plain)
+	}
+
+	page := get(t, h, "/math.md").Body.String()
+	for _, want := range []string{
+		"/__mdview/katex/katex.min.css?v=" + serverID,
+		"/__mdview/katex/katex.min.js?v=" + serverID,
+		`<span class="math-inline">x_1</span>`,
+		`<div class="math-display">y = x^2`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("math page missing %q", want)
+		}
+	}
+
+	assets := []struct {
+		url      string
+		wantCode int
+		wantCT   string
+	}{
+		{
+			"/__mdview/katex/katex.min.js",
+			http.StatusOK,
+			"application/javascript",
+		},
+		{"/__mdview/katex/katex.min.css", http.StatusOK, "text/css"},
+		{
+			"/__mdview/katex/fonts/KaTeX_Main-Regular.woff2",
+			http.StatusOK,
+			"font/woff2",
+		},
+		{"/__mdview/katex/LICENSE", http.StatusNotFound, ""},
+		{"/__mdview/katex/nope.js", http.StatusNotFound, ""},
+		{"/__mdview/katex/../js/ui.js", http.StatusNotFound, ""},
+	}
+	for _, tc := range assets {
+		rec := get(t, h, tc.url)
+		if rec.Code != tc.wantCode {
+			t.Errorf("GET %s = %d, want %d", tc.url, rec.Code, tc.wantCode)
+		}
+		if tc.wantCT != "" &&
+			!strings.HasPrefix(rec.Header().Get("Content-Type"), tc.wantCT) {
+			t.Errorf("GET %s Content-Type = %q, want prefix %q",
+				tc.url, rec.Header().Get("Content-Type"), tc.wantCT)
+		}
+		if tc.wantCode == http.StatusOK && rec.Body.Len() == 0 {
+			t.Errorf("GET %s returned empty body", tc.url)
+		}
+	}
+}

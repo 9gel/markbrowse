@@ -17,6 +17,7 @@ import (
 
 	"github.com/anantshri/markbrowse/internal/alerts"
 	"github.com/anantshri/markbrowse/internal/frontmatter"
+	"github.com/anantshri/markbrowse/internal/math"
 	"github.com/anantshri/markbrowse/internal/mermaid"
 	"github.com/anantshri/markbrowse/internal/wikilink"
 )
@@ -60,6 +61,7 @@ func newMarkdownConverter(rootDir string, allowRawHTML bool) *markdownConverter 
 	p := parser.New(
 		parser.WithExtensions(
 			extension.GFMParser,
+			math.NewParser(),
 			mermaid.NewParser(),
 			alerts.NewParser(),
 			wikilink.NewParser(),
@@ -74,6 +76,7 @@ func newMarkdownConverter(rootDir string, allowRawHTML bool) *markdownConverter 
 	rendererOpts := []ghtml.Option{
 		ghtml.WithExtensions(
 			extension.GFMHTMLRenderer,
+			math.NewHTMLRenderer(),
 			mermaid.NewHTMLRenderer(),
 			alerts.NewHTMLRenderer(alertIcons),
 			wikilink.NewHTMLRenderer(&wikilinkResolver{rootDir: rootDir}),

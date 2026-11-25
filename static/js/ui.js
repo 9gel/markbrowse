@@ -47,6 +47,19 @@
     if (mode() === "system") renderMermaid();
   });
 
+  // ----------------------------------------------------------------- katex
+
+  if (window.katex) {
+    var mathNodes = document.querySelectorAll(".math-inline, .math-display");
+    Array.prototype.forEach.call(mathNodes, function (el) {
+      katex.render(el.textContent, el, {
+        displayMode: el.classList.contains("math-display"),
+        throwOnError: false,
+        strict: "ignore"
+      });
+    });
+  }
+
   // --------------------------------------------------------------- mermaid
 
   if (!window.mermaid) return;

@@ -16,6 +16,7 @@ type pageData struct {
 	Body        template.HTML
 	Breadcrumbs []breadcrumb
 	HasMermaid  bool
+	HasMath     bool
 	CurrentPath string
 	Auth        bool
 }
@@ -46,6 +47,9 @@ var mdTmpl = template.Must(template.New("markdown").Funcs(assetFuncs).Parse(`<!D
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}}</title>
 <style>{{.CSS}}</style>
+{{- if .HasMath}}
+<link rel="stylesheet" href="/__mdview/katex/katex.min.css?v={{v}}">
+{{- end}}
 <script nonce="{{.Nonce}}">try{var t=localStorage.getItem("mb-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
 <body data-current-path="{{.CurrentPath}}">
@@ -76,6 +80,9 @@ var mdTmpl = template.Must(template.New("markdown").Funcs(assetFuncs).Parse(`<!D
 </article>
 {{if .HasMermaid}}<script src="/__mdview/mermaid.js?v={{v}}"></script>
 <script src="/__mdview/panzoom.js?v={{v}}"></script>{{end}}
+{{- if .HasMath}}
+<script src="/__mdview/katex/katex.min.js?v={{v}}"></script>
+{{- end}}
 </div>
 </main>
 <nav class="mdview-toc" id="toc-root" aria-label="Table of contents"></nav>

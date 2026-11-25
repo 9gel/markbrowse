@@ -11,6 +11,8 @@ A minimal markdown file viewer. Point it at any directory and it starts a web se
 - Falls back to a file listing when no index markdown is present
 - Serves non-markdown files as-is (images, PDFs, etc.)
 - [Mermaid](https://mermaid.js.org/) diagram rendering (mermaid 11.4.0, bundled; held below 12, whose new default look is harder to read). Tap a diagram to open it full-window, then pan and zoom (drag, wheel, pinch)
+- [KaTeX](https://katex.org/) TeX math rendering (`$...$` inline and `$$...$$`
+  display, bundled)
 - Wiki-style `[[link]]` syntax with file-tree resolution
 - GitHub/Obsidian-style admonition callouts (`> [!NOTE]`, `> [!WARNING]`, etc.)
 - YAML front matter rendered as a GitHub-style metadata table, with `title` used as the page title
@@ -163,6 +165,9 @@ API the upstream versions do not yet support. Each directory keeps the original
 
 `static/js/panzoom.min.js` is [@panzoom/panzoom](https://github.com/timmywil/panzoom)
 4.6.0, MIT, © Timmy Willison, embedded unmodified.
+
+`static/katex/` is [KaTeX](https://katex.org/) 0.19.1, MIT, © Khan Academy,
+embedded unmodified (WOFF2 fonts).
 
 ## Changelog
 

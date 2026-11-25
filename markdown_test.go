@@ -20,6 +20,12 @@ func TestMarkdownConvert(t *testing.T) {
 		{"link", "[url](http://example.com)", `<a href="http://example.com">url</a>`},
 		{"callout", "> [!NOTE]\n> hi", "markdown-alert-note"},
 		{"mermaid", "```mermaid\ngraph TD\nA-->B\n```", `class="mermaid"`},
+		{
+			"inline math",
+			"$a_1 + b_2$",
+			`<span class="math-inline">a_1 + b_2</span>`,
+		},
+		{"block math", "$$\nx_1 = 2\n$$", `<div class="math-display">x_1 = 2`},
 	}
 
 	for _, tt := range tests {
